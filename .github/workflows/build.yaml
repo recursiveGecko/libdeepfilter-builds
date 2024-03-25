@@ -4,8 +4,8 @@ on:
   push:
     branches: [ master ]
   schedule:
-    # Every day
-    - cron: 0 0 * * *
+    # Every 12 hours
+    - cron: 0 */12 * * *
   workflow_dispatch:
 
 jobs:
