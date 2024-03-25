@@ -1,15 +1,8 @@
 #!/usr/bin/env bash
-set -eo pipefail
+set -euo pipefail
 
 NAME=deepfilternet
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-DOWNLOAD_URL=$1
-
-
-if [ -z "$DOWNLOAD_URL" ]; then
-  echo ".tar.gz download URL must be provided as first and only argument"
-  exit 1
-fi
 
 if [ -z "$RUST_VERSION" ]; then
   echo "\$RUST_VERSION must be set (e.g. '1.76.0')"
@@ -21,38 +14,31 @@ if [ -z "$TARGET" ]; then
   exit 1
 fi
 
-set -u
+if [ -z "$BUILD_ROOT_PATH" ]; then
+  echo "\$BUILD_ROOT_PATH must be set to project build root"
+  exit 1
+fi
 
-BUILD_ROOT_DIR="${SCRIPT_DIR}/build/root"
-BUILD_OUT_DIR="${SCRIPT_DIR}/build/out"
-MODELS_DIR="${BUILD_OUT_DIR}/models"
-FILE_NAME="DeepFilterNet.tar.gz"
+if [ -z "$ARTIFACT_PATH" ]; then
+  echo "\$ARTIFACT_PATH must be set to directory where artifacts will be placed"
+  exit 1
+fi
 
-rm -r "${BUILD_ROOT_DIR}" 2>/dev/null || true
-rm -r "${BUILD_OUT_DIR}" 2>/dev/null || true
-mkdir -p "${BUILD_ROOT_DIR}"
-mkdir -p "${BUILD_OUT_DIR}"
-
-echo "Downloading ${DOWNLOAD_URL}"
+rm -r "${ARTIFACT_PATH}" 2>/dev/null || true
+mkdir -p "${ARTIFACT_PATH}"
 
 set -x
-cd "${BUILD_ROOT_DIR}"
-# Download and extract DFN
-curl --fail --location "${DOWNLOAD_URL}" -o "${FILE_NAME}"
-tar xvf "${FILE_NAME}" --strip-components 1
-
+cd "${BUILD_ROOT_PATH}"
 # Copy cbindgen.toml to libDF, `cinstall` doesn't seem to be using the one in root directory for some reason.
 # The "state" of the project directory also seems to get cached between builds, so if this step isn't performed correctly
 # `cargo cinstall` will keep generating C++ headers rather than C headers even after the file is later copied in correct
 # location. To resolve this, run `cargo clean`. If the file is now in correct location, `cargo cinstall` should work as expected.
 cp cbindgen.toml libDF
 # Build DeepFilterNet
-cargo "+${RUST_VERSION}" cinstall --locked --package deep_filter --profile release-lto --target "${TARGET}" --prefix "${BUILD_OUT_DIR}"
+cargo "+${RUST_VERSION}" cinstall --locked --package deep_filter --profile release-lto --target "${TARGET}" --prefix "${ARTIFACT_PATH}"
 
 # Copy the models
-cp -r models "${MODELS_DIR}"
-# # Delete build root
-rm -r "${BUILD_ROOT_DIR}"
-set +x
+cp -r models "${ARTIFACT_PATH}/models"
 
+set +x
 echo "libdeepfilter built successfully."

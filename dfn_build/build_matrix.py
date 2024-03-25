@@ -43,26 +43,12 @@ upstream_tag = latest_upstream_release.tag_name
 upstream_tarball = latest_upstream_release.tarball_url
 
 our_repo = gh.get_repo(OUR_PROJECT)
-our_tag_name = f"upstream-{upstream_tag}"
+our_tag_name = f"release-{upstream_tag}"
 
 for release in our_repo.get_releases():
-    # Delete any of our drafts
-    if release.draft or release.prerelease:
-        release.delete_release()
-        continue
-
-    if release.tag_name == our_tag_name:
+    if release.tag_name == our_tag_name and not release.draft:
         print_err("Upstream release already built & published.")
         exit(0)
-
-try:
-    # Check if we have an existing `upstream-*` tag without an associated release.
-    existing_tag = our_repo.get_git_ref(f"tags/{our_tag_name}")
-    # If it exists, delete it since it will be re-created later.
-    existing_tag.delete()
-except:
-    pass
-
 
 matrix_include = []
 for target in TARGETS:

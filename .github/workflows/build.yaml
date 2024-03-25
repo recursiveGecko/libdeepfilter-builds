@@ -3,6 +3,9 @@ name: Build
 on:
   push:
     branches: [ master ]
+  schedule:
+    # Every day
+    - cron: 0 0 * * *
   workflow_dispatch:
 
 jobs:
@@ -11,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: "${{ steps.generate-matrix.outputs.matrix }}"
-      upstream_tag: "${{ steps.generate-matrix.outputs.tag }}"
+      upstream_tag: "${{ steps.generate-matrix.outputs.upstream_tag }}"
       upstream_tarball: "${{ steps.generate-matrix.outputs.tarball }}"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           lfs: true
@@ -36,10 +39,10 @@ jobs:
           MATRIX=$(echo $OUTPUT | jq -c ".matrix")
           echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
 
-          UPSTREAM_TARBALL=$(echo $OUTPUT | jq -c ".tarball")
+          UPSTREAM_TARBALL=$(echo $OUTPUT | jq -r -c ".tarball")
           echo "tarball=${UPSTREAM_TARBALL}" >> $GITHUB_OUTPUT
 
-          UPSTREAM_TAG=$(echo $OUTPUT | jq -c ".tag")
+          UPSTREAM_TAG=$(echo $OUTPUT | jq -r -c ".tag")
           echo "upstream_tag=${UPSTREAM_TAG}" >> $GITHUB_OUTPUT
 
   build-lib:
@@ -47,21 +50,79 @@ jobs:
     name: Build libdeepfilter
     needs: build-matrix
     strategy:
+      fail-fast: false
       matrix: ${{fromJson(needs.build-matrix.outputs.matrix)}}
     env:
       RUST_VERSION: "1.77.0"
       CARGO_C_VERSION: "0.9.31"
-      UPSTREAM_TAG: ${{needs.build-matrix.outputs.upstream_tag}}
-      UPSTREAM_TARBALL: ${{needs.build-matrix.outputs.upstream_tarball}}
+      UPSTREAM_TAG: "${{needs.build-matrix.outputs.upstream_tag}}"
+      UPSTREAM_TARBALL: "${{needs.build-matrix.outputs.upstream_tarball}}"
+      ARTIFACT_NAME: "libdeepfilter-${{needs.build-matrix.outputs.upstream_tag}}-${{ matrix.target }}"
+      TARBALL_SAVE_PATH: "${{ github.workspace }}/build/DeepFilterNet.tar.gz"
+      BUILD_ROOT_PATH: "${{ github.workspace }}/build/root"
+      ARTIFACT_PATH: "${{ github.workspace }}/build/libdeepfilter"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           lfs: true
 
-      - name: Set up Rust for ${{ matrix.target }}
+      - name: Download upstream tarball
         run: |
-          rustup install ${{ env.RUST_VERSION }}
+          set -ux
+          mkdir "${BUILD_ROOT_PATH}"
+          curl --fail --location "${UPSTREAM_TARBALL}" -o "${TARBALL_SAVE_PATH}"
+          tar xvf "${TARBALL_SAVE_PATH}" --strip-components 1 --directory "${BUILD_ROOT_PATH}"
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install ${{ env.RUST_VERSION }}
+          rustup default ${{ env.RUST_VERSION }}
+
+      - uses: Swatinem/rust-cache@v2.7.3
+        with:
+          env-vars: "CARGO CC CFLAGS CXX CMAKE RUST"
+          cache-all-crates: true
+          workspaces: |
+            ${{ env.BUILD_ROOT_PATH }} -> target
+
+      - name: Add Rust target and install cargo-c
+        run: |
+          set -ux
           rustup +${{ env.RUST_VERSION }} target add "${{ matrix.target }}"
           cargo +${{ env.RUST_VERSION }} install "cargo-c@${{ env.CARGO_C_VERSION }}"
       
+      - name: Build upstream project 
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -ux
+          ./build.sh
+
+          cd "$(dirname "${ARTIFACT_PATH}")"
+          tar cvzf "${ARTIFACT_NAME}.tar.gz" "$(basename "${ARTIFACT_PATH}")"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "${{ env.ARTIFACT_NAME }}.tar.gz"
+          path: "build/${{ env.ARTIFACT_NAME }}.tar.gz"
+          retention-days: 30
+
+      - name: Release
+        uses: ncipollo/release-action@v1.14.0
+        with:
+          tag: "release-${{ env.UPSTREAM_TAG }}"
+          name: "${{ env.UPSTREAM_TAG }}"
+          draft: true
+          allowUpdates: true
+          updateOnlyUnreleased: true
+          artifactErrorsFailBuild: true
+          generateReleaseNotes: false
+          artifacts: "build/${{ env.ARTIFACT_NAME }}.tar.gz"
+          body: |
+            Build of upstream DeepFilterNet.
+
+            Upstream tag: `${{ env.UPSTREAM_TAG }}`
+            Upstream source: ${{ env.UPSTREAM_TARBALL }}
+            Rust version: `${{ env.RUST_VERSION }}`
+            Cargo-C version: `${{ env.CARGO_C_VERSION }}`
