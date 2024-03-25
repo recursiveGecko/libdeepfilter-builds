@@ -35,7 +35,7 @@ cd "${BUILD_ROOT_PATH}"
 # location. To resolve this, run `cargo clean`. If the file is now in correct location, `cargo cinstall` should work as expected.
 cp cbindgen.toml libDF
 # Build DeepFilterNet
-cargo "+${RUST_VERSION}" cinstall --locked --package deep_filter --profile release-lto --target "${TARGET}" --prefix "${ARTIFACT_PATH}"
+cargo "+${RUST_VERSION}" cinstall --locked --package deep_filter --profile release-lto --target "${TARGET}" --prefix "${ARTIFACT_PATH}" --features capi
 
 # Copy the models
 cp -r models "${ARTIFACT_PATH}/models"
