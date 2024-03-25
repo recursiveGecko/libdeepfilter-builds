@@ -34,8 +34,13 @@ cd "${BUILD_ROOT_PATH}"
 # `cargo cinstall` will keep generating C++ headers rather than C headers even after the file is later copied in correct
 # location. To resolve this, run `cargo clean`. If the file is now in correct location, `cargo cinstall` should work as expected.
 cp cbindgen.toml libDF
+find target -name "cargo-c-deep_filter.cache" -delete
 # Build DeepFilterNet
 cargo "+${RUST_VERSION}" cinstall --locked --package deep_filter --profile release-lto --target "${TARGET}" --prefix "${ARTIFACT_PATH}" --features capi
+
+# Ensure generated headers are C-compatible
+HEADER_PATH="${ARTIFACT_PATH}/include/deep_filter/deep_filter.h"
+grep "#ifdef __cplusplus" "${HEADER_PATH}" || ( echo "Generated header is missing a C++ guard." && exit 2 )
 
 # Copy the models
 cp -r models "${ARTIFACT_PATH}/models"
