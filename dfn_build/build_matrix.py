@@ -20,10 +20,8 @@ TARGETS = [
     # "aarch64-apple-darwin",
 ]
 
-
 def print_err(msg):
     print(msg, file=sys.stderr)
-
 
 try:
     GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
@@ -32,16 +30,26 @@ except KeyError:
     print_err("GITHUB_TOKEN environment variable must be set.")
     exit(1)
 
+
+
 gh = Github(auth=auth)
 
 upstream_repo = gh.get_repo(UPSTREAM_PROJECT)
 latest_upstream_release = upstream_repo.get_latest_release()
-
-if latest_upstream_release.draft or latest_upstream_release.prerelease:
-    exit(0)
-
 upstream_tag = latest_upstream_release.tag_name
 upstream_tarball = latest_upstream_release.tarball_url
+
+output = {
+    "matrix": {
+        "include": [],
+    },
+    "tag": upstream_tag,
+    "tarball": upstream_tarball,
+}
+
+if latest_upstream_release.draft or latest_upstream_release.prerelease:
+    print(json.dumps(output))
+    exit(0)
 
 our_repo = gh.get_repo(OUR_PROJECT)
 our_tag_name = f"release-{upstream_tag}"
@@ -51,22 +59,6 @@ for release in our_repo.get_releases():
         print_err("Upstream release already built & published.")
         exit(0)
 
-matrix_include = []
-for target in TARGETS:
-    matrix_include.append(
-        {
-            "target": target,
-            "tag": upstream_tag,
-        }
-    )
-
-
-output = {
-    "matrix": {
-        "include": [{"target": target} for target in TARGETS],
-    },
-    "tag": upstream_tag,
-    "tarball": upstream_tarball,
-}
+output["matrix"]["include"] = [{"target": target} for target in TARGETS]
 
 print(json.dumps(output))
