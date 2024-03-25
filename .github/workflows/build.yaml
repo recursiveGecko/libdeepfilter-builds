@@ -1,0 +1,67 @@
+name: Build
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build-matrix:
+    name: Generate build matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: "${{ steps.generate-matrix.outputs.matrix }}"
+      upstream_tag: "${{ steps.generate-matrix.outputs.tag }}"
+      upstream_tarball: "${{ steps.generate-matrix.outputs.tarball }}"
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          lfs: true
+
+      - name: Install Python dependencies
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Build the matrix
+        id: generate-matrix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          source .venv/bin/activate
+          OUTPUT="$(python3 -m dfn_build.build_matrix)"
+
+          MATRIX=$(echo $OUTPUT | jq -c ".matrix")
+          echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
+
+          UPSTREAM_TARBALL=$(echo $OUTPUT | jq -c ".tarball")
+          echo "tarball=${UPSTREAM_TARBALL}" >> $GITHUB_OUTPUT
+
+          UPSTREAM_TAG=$(echo $OUTPUT | jq -c ".tag")
+          echo "upstream_tag=${UPSTREAM_TAG}" >> $GITHUB_OUTPUT
+
+  build-lib:
+    runs-on: ubuntu-latest
+    name: Build libdeepfilter
+    needs: build-matrix
+    strategy:
+      matrix: ${{fromJson(needs.build-matrix.outputs.matrix)}}
+    env:
+      RUST_VERSION: "1.77.0"
+      CARGO_C_VERSION: "0.9.31"
+      UPSTREAM_TAG: ${{needs.build-matrix.outputs.upstream_tag}}
+      UPSTREAM_TARBALL: ${{needs.build-matrix.outputs.upstream_tarball}}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          lfs: true
+
+      - name: Set up Rust for ${{ matrix.target }}
+        run: |
+          rustup install ${{ env.RUST_VERSION }}
+          rustup +${{ env.RUST_VERSION }} target add "${{ matrix.target }}"
+          cargo +${{ env.RUST_VERSION }} install "cargo-c@${{ env.CARGO_C_VERSION }}"
+      
