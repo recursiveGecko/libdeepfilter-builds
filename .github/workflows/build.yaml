@@ -13,6 +13,7 @@ jobs:
     name: Generate build matrix
     runs-on: ubuntu-latest
     outputs:
+      skip_build: "${{ steps.generate-matrix.outputs.skip_build }}"
       matrix: "${{ steps.generate-matrix.outputs.matrix }}"
       upstream_tag: "${{ steps.generate-matrix.outputs.upstream_tag }}"
       upstream_tarball: "${{ steps.generate-matrix.outputs.tarball }}"
@@ -22,7 +23,7 @@ jobs:
           submodules: recursive
           lfs: true
 
-      - uses: actions/cache@v2
+      - uses: actions/cache@v4
         id: cache-venv
         with:
           path: ./.venv/
@@ -54,19 +55,23 @@ jobs:
           UPSTREAM_TAG=$(echo $OUTPUT | jq -r -c ".tag")
           echo "upstream_tag=${UPSTREAM_TAG}" >> $GITHUB_OUTPUT
 
+          SKIP_BUILD=$(echo $OUTPUT | jq -r -c ".skip_build")
+          echo "skip_build=${SKIP_BUILD}" >> $GITHUB_OUTPUT
+
   build-lib:
     runs-on: ubuntu-latest
     name: Build libdeepfilter
     needs: build-matrix
+    if: needs.build-matrix.outputs.skip_build != 'true'
     strategy:
       fail-fast: false
-      matrix: ${{fromJson(needs.build-matrix.outputs.matrix)}}
+      matrix: ${{ fromJson(needs.build-matrix.outputs.matrix) }}
     env:
       RUST_VERSION: "1.77.0"
       CARGO_C_VERSION: "0.9.31"
-      UPSTREAM_TAG: "${{needs.build-matrix.outputs.upstream_tag}}"
-      UPSTREAM_TARBALL: "${{needs.build-matrix.outputs.upstream_tarball}}"
-      ARTIFACT_NAME: "libdeepfilter-${{needs.build-matrix.outputs.upstream_tag}}-${{ matrix.target }}"
+      UPSTREAM_TAG: "${{ needs.build-matrix.outputs.upstream_tag }}"
+      UPSTREAM_TARBALL: "${{ needs.build-matrix.outputs.upstream_tarball }}"
+      ARTIFACT_NAME: "libdeepfilter-${{ needs.build-matrix.outputs.upstream_tag }}-${{ matrix.target }}"
       TARBALL_SAVE_PATH: "${{ github.workspace }}/build/DeepFilterNet.tar.gz"
       BUILD_ROOT_PATH: "${{ github.workspace }}/build/root"
       ARTIFACT_PATH: "${{ github.workspace }}/build/libdeepfilter"
@@ -106,7 +111,7 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: |
           set -ux
-          ./build.sh
+          ./dfn_build/build.sh
 
           cd "$(dirname "${ARTIFACT_PATH}")"
           tar cvzf "${ARTIFACT_NAME}.tar.gz" "$(basename "${ARTIFACT_PATH}")"

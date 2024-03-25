@@ -43,6 +43,7 @@ output = {
     },
     "tag": upstream_tag,
     "tarball": upstream_tarball,
+    "skip_build": True,
 }
 
 if latest_upstream_release.draft or latest_upstream_release.prerelease:
@@ -60,5 +61,6 @@ for release in our_repo.get_releases():
         exit(0)
 
 output["matrix"]["include"] = [{"target": target} for target in TARGETS]
+output["skip_build"] = False
 
 print(json.dumps(output))
