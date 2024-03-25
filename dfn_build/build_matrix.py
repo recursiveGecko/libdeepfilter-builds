@@ -10,7 +10,8 @@ UPSTREAM_PROJECT = "Rikorose/DeepFilterNet"
 # https://doc.rust-lang.org/stable/rustc/platform-support.html
 TARGETS = [
     "x86_64-unknown-linux-gnu",
-    "x86_64-pc-windows-gnu",
+    # TODO: Cross compilation
+    # "x86_64-pc-windows-gnu",
     # "x86_64-unknown-linux-musl",
     # "x86_64-unknown-freebsd",
     # "x86_64-apple-darwin",
