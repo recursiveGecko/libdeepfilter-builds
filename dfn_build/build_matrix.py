@@ -30,8 +30,6 @@ except KeyError:
     print_err("GITHUB_TOKEN environment variable must be set.")
     exit(1)
 
-
-
 gh = Github(auth=auth)
 
 upstream_repo = gh.get_repo(UPSTREAM_PROJECT)
@@ -48,6 +46,7 @@ output = {
 }
 
 if latest_upstream_release.draft or latest_upstream_release.prerelease:
+    print_err("Latest upstream release is a draft or a pre-release")
     print(json.dumps(output))
     exit(0)
 
@@ -57,6 +56,7 @@ our_tag_name = f"release-{upstream_tag}"
 for release in our_repo.get_releases():
     if release.tag_name == our_tag_name and not release.draft:
         print_err("Upstream release already built & published.")
+        print(json.dumps(output))
         exit(0)
 
 output["matrix"]["include"] = [{"target": target} for target in TARGETS]
