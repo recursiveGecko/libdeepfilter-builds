@@ -120,9 +120,9 @@ jobs:
         with:
           tag: "${{ env.OUR_TAG }}"
           name: "${{ env.UPSTREAM_SHORT_REF }}"
-          draft: ${{ not env.IS_PRERELEASE }}
+          draft: ${{ ! env.IS_PRERELEASE }}
           allowUpdates: true
-          updateOnlyUnreleased: ${{ not env.IS_PRERELEASE }}
+          updateOnlyUnreleased: ${{ ! env.IS_PRERELEASE }}
           artifactErrorsFailBuild: true
           generateReleaseNotes: false
           prerelease: ${{ env.IS_PRERELEASE }}
