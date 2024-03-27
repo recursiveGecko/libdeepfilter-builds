@@ -15,8 +15,6 @@ jobs:
     outputs:
       skip_build: "${{ steps.generate-matrix.outputs.skip_build }}"
       matrix: "${{ steps.generate-matrix.outputs.matrix }}"
-      upstream_tag: "${{ steps.generate-matrix.outputs.upstream_tag }}"
-      upstream_tarball: "${{ steps.generate-matrix.outputs.tarball }}"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,12 +47,6 @@ jobs:
           MATRIX=$(echo $OUTPUT | jq -c ".matrix")
           echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
 
-          UPSTREAM_TARBALL=$(echo $OUTPUT | jq -r -c ".tarball")
-          echo "tarball=${UPSTREAM_TARBALL}" >> $GITHUB_OUTPUT
-
-          UPSTREAM_TAG=$(echo $OUTPUT | jq -r -c ".tag")
-          echo "upstream_tag=${UPSTREAM_TAG}" >> $GITHUB_OUTPUT
-
           SKIP_BUILD=$(echo $OUTPUT | jq -r -c ".skip_build")
           echo "skip_build=${SKIP_BUILD}" >> $GITHUB_OUTPUT
 
@@ -69,9 +61,10 @@ jobs:
     env:
       RUST_VERSION: "1.77.0"
       CARGO_C_VERSION: "0.9.31"
-      UPSTREAM_TAG: "${{ needs.build-matrix.outputs.upstream_tag }}"
-      UPSTREAM_TARBALL: "${{ needs.build-matrix.outputs.upstream_tarball }}"
-      ARTIFACT_NAME: "libdeepfilter-${{ needs.build-matrix.outputs.upstream_tag }}-${{ matrix.target }}"
+      OUR_TAG: "${{ matrix.our_tag }}"
+      UPSTREAM_REF: "${{ matrix.ref }}"
+      UPSTREAM_TARBALL: "${{ matrix.tarball }}"
+      ARTIFACT_NAME: "libdeepfilter-${{ matrix.short_ref }}-${{ matrix.target }}"
       TARBALL_SAVE_PATH: "${{ github.workspace }}/build/DeepFilterNet.tar.gz"
       BUILD_ROOT_PATH: "${{ github.workspace }}/build/root"
       ARTIFACT_PATH: "${{ github.workspace }}/build/libdeepfilter"
@@ -84,9 +77,7 @@ jobs:
       - name: Download upstream tarball
         run: |
           set -ux
-          mkdir "${BUILD_ROOT_PATH}"
-          curl --fail --location "${UPSTREAM_TARBALL}" -o "${TARBALL_SAVE_PATH}"
-          tar xvf "${TARBALL_SAVE_PATH}" --strip-components 1 --directory "${BUILD_ROOT_PATH}"
+          ./dfn_build/download.sh
 
       - name: Install Rust toolchain
         run: |
@@ -125,18 +116,19 @@ jobs:
       - name: Release
         uses: ncipollo/release-action@v1.14.0
         with:
-          tag: "release-${{ env.UPSTREAM_TAG }}"
-          name: "${{ env.UPSTREAM_TAG }}"
+          tag: "${{ env.OUR_TAG }}"
+          name: "${{ env.UPSTREAM_REF }}"
           draft: true
           allowUpdates: true
           updateOnlyUnreleased: true
           artifactErrorsFailBuild: true
           generateReleaseNotes: false
+          prerelease: startsWith(matrix.our_tag, "prerelease-")
           artifacts: "build/${{ env.ARTIFACT_NAME }}.tar.gz"
           body: |
             Build of upstream DeepFilterNet.
 
-            Upstream tag: `${{ env.UPSTREAM_TAG }}`
+            Upstream ref: `${{ env.UPSTREAM_REF }}`
             Upstream source: ${{ env.UPSTREAM_TARBALL }}
             Rust version: `${{ env.RUST_VERSION }}`
             Cargo-C version: `${{ env.CARGO_C_VERSION }}`

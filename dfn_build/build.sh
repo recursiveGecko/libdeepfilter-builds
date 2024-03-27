@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NAME=deepfilternet
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 if [ -z "$RUST_VERSION" ]; then
-  echo "\$RUST_VERSION must be set (e.g. '1.76.0')"
+  echo "\$RUST_VERSION must be set (e.g. '1.77.0')"
   exit 1
 fi
 
@@ -24,6 +23,9 @@ if [ -z "$ARTIFACT_PATH" ]; then
   exit 1
 fi
 
+BUILD_ROOT_PATH=$(realpath "${BUILD_ROOT_PATH}")
+ARTIFACT_PATH=$(realpath "${ARTIFACT_PATH}")
+
 rm -r "${ARTIFACT_PATH}" 2>/dev/null || true
 mkdir -p "${ARTIFACT_PATH}"
 
@@ -34,9 +36,11 @@ cd "${BUILD_ROOT_PATH}"
 # `cargo cinstall` will keep generating C++ headers rather than C headers even after the file is later copied in correct
 # location. To resolve this, run `cargo clean`. If the file is now in correct location, `cargo cinstall` should work as expected.
 cp cbindgen.toml libDF
-find target -name "cargo-c-deep_filter.cache" -delete
+if [ -d "target" ]; then
+  find target -name "cargo-c-deep_filter.cache" -delete || true
+fi
 # Build DeepFilterNet
-cargo "+${RUST_VERSION}" cinstall --locked --package deep_filter --profile release-lto --target "${TARGET}" --prefix "${ARTIFACT_PATH}" --features capi
+cargo "+${RUST_VERSION}" cinstall --package deep_filter --profile release-lto --target "${TARGET}" --prefix "${ARTIFACT_PATH}" --features capi
 
 # Ensure generated headers are C-compatible
 HEADER_PATH="${ARTIFACT_PATH}/include/deep_filter/deep_filter.h"
