@@ -63,11 +63,13 @@ jobs:
       CARGO_C_VERSION: "0.9.31"
       OUR_TAG: "${{ matrix.our_tag }}"
       UPSTREAM_REF: "${{ matrix.ref }}"
+      UPSTREAM_SHORT_REF: "${{ matrix.ref }}"
       UPSTREAM_TARBALL: "${{ matrix.tarball }}"
       ARTIFACT_NAME: "libdeepfilter-${{ matrix.short_ref }}-${{ matrix.target }}"
       TARBALL_SAVE_PATH: "${{ github.workspace }}/build/DeepFilterNet.tar.gz"
       BUILD_ROOT_PATH: "${{ github.workspace }}/build/root"
       ARTIFACT_PATH: "${{ github.workspace }}/build/libdeepfilter"
+      IS_PRERELEASE: startsWith(matrix.our_tag, "prerelease-")
     steps:
       - uses: actions/checkout@v4
         with:
@@ -117,13 +119,13 @@ jobs:
         uses: ncipollo/release-action@v1.14.0
         with:
           tag: "${{ env.OUR_TAG }}"
-          name: "${{ env.UPSTREAM_REF }}"
-          draft: true
+          name: "${{ env.UPSTREAM_SHORT_REF }}"
+          draft: ${{ not env.IS_PRERELEASE }}
           allowUpdates: true
-          updateOnlyUnreleased: true
+          updateOnlyUnreleased: ${{ not env.IS_PRERELEASE }}
           artifactErrorsFailBuild: true
           generateReleaseNotes: false
-          prerelease: startsWith(matrix.our_tag, "prerelease-")
+          prerelease: ${{ env.IS_PRERELEASE }}
           artifacts: "build/${{ env.ARTIFACT_NAME }}.tar.gz"
           body: |
             Build of upstream DeepFilterNet.
