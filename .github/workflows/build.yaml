@@ -63,13 +63,13 @@ jobs:
       CARGO_C_VERSION: "0.9.31"
       OUR_TAG: "${{ matrix.our_tag }}"
       UPSTREAM_REF: "${{ matrix.ref }}"
-      UPSTREAM_SHORT_REF: "${{ matrix.ref }}"
+      UPSTREAM_SHORT_REF: "${{ matrix.short_ref }}"
       UPSTREAM_TARBALL: "${{ matrix.tarball }}"
       ARTIFACT_NAME: "libdeepfilter-${{ matrix.short_ref }}-${{ matrix.target }}"
       TARBALL_SAVE_PATH: "${{ github.workspace }}/build/DeepFilterNet.tar.gz"
       BUILD_ROOT_PATH: "${{ github.workspace }}/build/root"
       ARTIFACT_PATH: "${{ github.workspace }}/build/libdeepfilter"
-      IS_PRERELEASE: startsWith(matrix.our_tag, "prerelease-")
+      IS_PRERELEASE: ${{ startsWith(matrix.our_tag, "prerelease-") }}
     steps:
       - uses: actions/checkout@v4
         with:
