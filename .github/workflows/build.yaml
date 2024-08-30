@@ -60,7 +60,7 @@ jobs:
       matrix: ${{ fromJson(needs.build-matrix.outputs.matrix) }}
     env:
       RUST_VERSION: "1.78.0"
-      CARGO_C_VERSION: "0.9.31"
+      CARGO_C_VERSION: "0.10.3"
       OUR_TAG: "${{ matrix.our_tag }}"
       UPSTREAM_REF: "${{ matrix.ref }}"
       UPSTREAM_SHORT_REF: "${{ matrix.short_ref }}"
